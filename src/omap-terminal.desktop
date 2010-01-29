@@ -1,0 +1,9 @@
+[Desktop Entry]
+Encoding=UTF-8
+Name=Omap Terminal
+Exec=omap-terminal
+Icon=terminal.png
+Terminal=false
+Type=Application
+Categories=Application;Desktop;Utility;TerminalEmulator;
+
