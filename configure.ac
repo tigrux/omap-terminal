@@ -19,6 +19,7 @@ AC_SUBST(VALA_DEPS)
 
 PKG_CHECK_MODULES(PROGRAM, 
     gtk+-2.0
+    gio-2.0
     vte
     )
 AC_SUBST(PROGRAM_CFLAGS)

@@ -63,7 +63,7 @@ GType term_window_get_type (void);
 enum  {
 	TERM_WINDOW_DUMMY_PROPERTY
 };
-#define TERM_WINDOW_UI_DESC "\n    <ui>\n        <menubar name='MenuBar'>\n            <menu action='FileMenu'>\n                 <menuitem action='Open'/>\n                <separator/>\n                <menuitem action='Quit'/>\n            </menu>\n            <menu action='EditMenu'>\n                 <menuitem action='Copy'/>\n                <menuitem action='Paste'/>\n            </menu>\n        </menubar>\n        <toolbar name='ToolBar'>\n            <toolitem action='Open'/>\n            <toolitem action='Copy'/>\n            <toolitem action='Paste'/>\n            <separator name='Separator' expand='true' draw='false'/> \n            <toolitem action='Quit'/>\n        </toolbar>\n    </ui>\n    "
+#define TERM_WINDOW_UI_DESC "\n    <ui>\n        <menubar name='MenuBar'>\n            <menu action='FileMenu'>\n                 <menuitem action='Open'/>\n                <separator/>\n                <menuitem action='Quit'/>\n            </menu>\n            <menu action='EditMenu'>\n                 <menuitem action='Copy'/>\n                <menuitem action='Paste'/>\n            </menu>\n        </menubar>\n        <toolbar name='ToolBar'>\n            <toolitem action='Open'/>\n            <toolitem action='Copy'/>\n            <toolitem action='Paste'/>\n            <separator name='Separator'/> \n            <toolitem action='Quit'/>\n        </toolbar>\n    </ui>\n    "
 void term_window_on_open (TermWindow* self);
 static void _term_window_on_open_gtk_action_callback (GtkAction* action, gpointer self);
 void term_window_on_copy (TermWindow* self);
@@ -334,13 +334,13 @@ static void _term_window_on_quit_gtk_object_destroy (TermWindow* _sender, gpoint
 }
 
 
-static void _term_window_on_term_child_exited_vte_terminal_child_exited (VteTerminal* _sender, gpointer self) {
-	term_window_on_term_child_exited (self);
+static gpointer _g_object_ref0 (gpointer self) {
+	return self ? g_object_ref (self) : NULL;
 }
 
 
-static gpointer _g_object_ref0 (gpointer self) {
-	return self ? g_object_ref (self) : NULL;
+static void _term_window_on_term_child_exited_vte_terminal_child_exited (VteTerminal* _sender, gpointer self) {
+	term_window_on_term_child_exited (self);
 }
 
 
@@ -357,8 +357,10 @@ static GObject * term_window_constructor (GType type, guint n_construct_properti
 		GtkVBox* box;
 		GtkActionGroup* action_group;
 		GtkUIManager* manager;
-		VteTerminal* _tmp0_;
-		GtkClipboard* _tmp1_;
+		GtkWidget* _tmp0_;
+		GtkSeparatorToolItem* separator;
+		VteTerminal* _tmp1_;
+		GtkClipboard* _tmp2_;
 		box = g_object_ref_sink ((GtkVBox*) gtk_vbox_new (FALSE, 0));
 		gtk_container_add ((GtkContainer*) self, (GtkWidget*) box);
 		gtk_window_set_title ((GtkWindow*) self, "Omap Terminal");
@@ -379,15 +381,19 @@ static GObject * term_window_constructor (GType type, guint n_construct_properti
 		}
 		gtk_box_pack_start ((GtkBox*) box, gtk_ui_manager_get_widget (manager, "/MenuBar"), FALSE, FALSE, (guint) 0);
 		gtk_box_pack_start ((GtkBox*) box, gtk_ui_manager_get_widget (manager, "/ToolBar"), FALSE, FALSE, (guint) 0);
-		self->term = (_tmp0_ = g_object_ref_sink ((VteTerminal*) vte_terminal_new ()), _g_object_unref0 (self->term), _tmp0_);
+		separator = _g_object_ref0 ((_tmp0_ = gtk_ui_manager_get_widget (manager, "/ToolBar/Separator"), GTK_IS_SEPARATOR_TOOL_ITEM (_tmp0_) ? ((GtkSeparatorToolItem*) _tmp0_) : NULL));
+		gtk_tool_item_set_expand ((GtkToolItem*) separator, TRUE);
+		gtk_separator_tool_item_set_draw (separator, FALSE);
+		self->term = (_tmp1_ = g_object_ref_sink ((VteTerminal*) vte_terminal_new ()), _g_object_unref0 (self->term), _tmp1_);
 		gtk_box_pack_start ((GtkBox*) box, (GtkWidget*) self->term, TRUE, TRUE, (guint) 0);
 		vte_terminal_fork_command (self->term, NULL, NULL, NULL, NULL, TRUE, TRUE, TRUE);
 		g_signal_connect_object (self->term, "child-exited", (GCallback) _term_window_on_term_child_exited_vte_terminal_child_exited, self, 0);
-		self->clipboard = (_tmp1_ = _g_object_ref0 (gtk_clipboard_get (GDK_SELECTION_CLIPBOARD)), _g_object_unref0 (self->clipboard), _tmp1_);
+		self->clipboard = (_tmp2_ = _g_object_ref0 (gtk_clipboard_get (GDK_SELECTION_CLIPBOARD)), _g_object_unref0 (self->clipboard), _tmp2_);
 		gtk_widget_show_all ((GtkWidget*) box);
 		_g_object_unref0 (box);
 		_g_object_unref0 (action_group);
 		_g_object_unref0 (manager);
+		_g_object_unref0 (separator);
 	}
 	return obj;
 }

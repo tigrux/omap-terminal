@@ -22,7 +22,7 @@ class TermWindow: Gtk.Window
             <toolitem action='Open'/>
             <toolitem action='Copy'/>
             <toolitem action='Paste'/>
-            <separator name='Separator' expand='true' draw='false'/> 
+            <separator name='Separator'/> 
             <toolitem action='Quit'/>
         </toolbar>
     </ui>
@@ -58,6 +58,10 @@ class TermWindow: Gtk.Window
         manager.add_ui_from_string(UI_DESC, -1)
         box.pack_start(manager.get_widget("/MenuBar"), false, false, 0)
         box.pack_start(manager.get_widget("/ToolBar"), false, false, 0)
+
+        var separator = manager.get_widget("/ToolBar/Separator") as Gtk.SeparatorToolItem
+        separator.set_expand(true)
+        separator.set_draw(false)
 
         term = new Vte.Terminal()
         box.pack_start(term, true, true, 0)
