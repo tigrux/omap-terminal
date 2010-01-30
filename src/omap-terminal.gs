@@ -81,6 +81,7 @@ class TermWindow: Gtk.Window
         primary_clipboard = Gtk.Clipboard.get(Gdk.SELECTION_PRIMARY)
         
         box.show_all()
+        term.grab_focus()
 
     def on_term_child_exited()
         destroy()

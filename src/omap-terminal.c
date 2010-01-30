@@ -467,6 +467,7 @@ static GObject * term_window_constructor (GType type, guint n_construct_properti
 		self->selection_clipboard = (_tmp2_ = _g_object_ref0 (gtk_clipboard_get (GDK_SELECTION_CLIPBOARD)), _g_object_unref0 (self->selection_clipboard), _tmp2_);
 		self->primary_clipboard = (_tmp3_ = _g_object_ref0 (gtk_clipboard_get (GDK_SELECTION_PRIMARY)), _g_object_unref0 (self->primary_clipboard), _tmp3_);
 		gtk_widget_show_all ((GtkWidget*) box);
+		gtk_widget_grab_focus ((GtkWidget*) self->term);
 		_g_object_unref0 (box);
 		_g_object_unref0 (action_group);
 		_g_object_unref0 (manager);
