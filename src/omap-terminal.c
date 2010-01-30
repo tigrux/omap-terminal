@@ -12,7 +12,6 @@
 #include <gio/gio.h>
 #include <glib/gstdio.h>
 
-#define _g_object_unref0(var) ((var == NULL) ? NULL : (var = (g_object_unref (var), NULL)))
 
 #define TYPE_TERM_WINDOW (term_window_get_type ())
 #define TERM_WINDOW(obj) (G_TYPE_CHECK_INSTANCE_CAST ((obj), TYPE_TERM_WINDOW, TermWindow))
@@ -24,6 +23,7 @@
 typedef struct _TermWindow TermWindow;
 typedef struct _TermWindowClass TermWindowClass;
 typedef struct _TermWindowPrivate TermWindowPrivate;
+#define _g_object_unref0(var) ((var == NULL) ? NULL : (var = (g_object_unref (var), NULL)))
 #define _g_free0(var) (var = (g_free (var), NULL))
 #define _g_string_free0(var) ((var == NULL) ? NULL : (var = (g_string_free (var, TRUE), NULL)))
 typedef struct _TermWindowInsertTextWithDelayData TermWindowInsertTextWithDelayData;
@@ -63,7 +63,7 @@ struct _TermWindowInsertTextWithDelayData {
 
 static gpointer term_window_parent_class = NULL;
 
-void widget_send_key (GtkWidget* widget, const char* key_name, GdkModifierType state);
+void widget_put_accelerator (GtkWidget* widget, const char* accelerator);
 GType term_window_get_type (void);
 enum  {
 	TERM_WINDOW_DUMMY_PROPERTY
@@ -109,23 +109,20 @@ void _main (char** args, int args_length1);
 static const GtkActionEntry TERM_WINDOW_entries[] = {{"FileMenu", NULL, "_File"}, {"EditMenu", NULL, "_Edit"}, {"Open", GTK_STOCK_OPEN, "_Open", "<shift><control>O", "Open file", (GCallback) _term_window_on_open_gtk_action_callback}, {"Disconnect", GTK_STOCK_DISCONNECT, "_Disconnect", "<shift><control>X", "Disconnect", (GCallback) _term_window_on_disconnect_gtk_action_callback}, {"Copy", GTK_STOCK_COPY, "_Copy", "<shift><control>C", "Copy", (GCallback) _term_window_on_copy_gtk_action_callback}, {"Paste", GTK_STOCK_PASTE, "_Paste", "<shift><control>V", "Paste", (GCallback) _term_window_on_paste_gtk_action_callback}, {"Stop", GTK_STOCK_STOP, "_Stop", "<shift><control>S", "Stop", (GCallback) _term_window_on_stop_gtk_action_callback}, {"Quit", GTK_STOCK_QUIT, "_Quit", "<shift><control>Q", "Quit", (GCallback) _term_window_on_quit_gtk_action_callback}};
 
 
-static gpointer _g_object_ref0 (gpointer self) {
-	return self ? g_object_ref (self) : NULL;
-}
-
-
-void widget_send_key (GtkWidget* widget, const char* key_name, GdkModifierType state) {
+void widget_put_accelerator (GtkWidget* widget, const char* accelerator) {
+	guint keyval = 0U;
+	GdkModifierType state = 0;
 	GdkKeymap* keymap;
-	guint keyval;
 	gint keys_size;
 	gint keys_length1;
 	GdkKeymapKey* keys;
 	GdkEvent* e;
 	GdkEventKey* ek;
 	g_return_if_fail (widget != NULL);
-	g_return_if_fail (key_name != NULL);
-	keymap = _g_object_ref0 (gdk_keymap_get_default ());
-	keyval = gdk_keyval_from_name (key_name);
+	g_return_if_fail (accelerator != NULL);
+	gtk_accelerator_parse (accelerator, &keyval, &state);
+	g_return_if_fail (keyval != 0);
+	keymap = gdk_keymap_get_default ();
 	keys = (keys_length1 = 0, NULL);
 	gdk_keymap_get_entries_for_keyval (keymap, keyval, &keys, &keys_length1);
 	e = gdk_event_new (GDK_KEY_PRESS);
@@ -138,7 +135,6 @@ void widget_send_key (GtkWidget* widget, const char* key_name, GdkModifierType s
 	(*ek).hardware_keycode = (guint16) keys[0].keycode;
 	(*ek).group = (guchar) keys[0].group;
 	gdk_event_put (e);
-	_g_object_unref0 (keymap);
 	keys = (g_free (keys), NULL);
 }
 
@@ -217,8 +213,8 @@ void term_window_on_quit (TermWindow* self) {
 
 void term_window_on_disconnect (TermWindow* self) {
 	g_return_if_fail (self != NULL);
-	widget_send_key ((GtkWidget*) self->term, "X", GDK_CONTROL_MASK);
-	widget_send_key ((GtkWidget*) self->term, "C", GDK_CONTROL_MASK);
+	widget_put_accelerator ((GtkWidget*) self->term, "<control>A");
+	widget_put_accelerator ((GtkWidget*) self->term, "<control>X");
 }
 
 
@@ -449,6 +445,11 @@ TermWindow* term_window_new (void) {
 
 static void _term_window_on_quit_gtk_object_destroy (TermWindow* _sender, gpointer self) {
 	term_window_on_quit (self);
+}
+
+
+static gpointer _g_object_ref0 (gpointer self) {
+	return self ? g_object_ref (self) : NULL;
 }
 
 

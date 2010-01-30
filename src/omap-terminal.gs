@@ -1,8 +1,11 @@
 [indent=4]
 
-def widget_send_key(widget: Gtk.Widget, key_name: string, state: Gdk.ModifierType)
-    var keymap = Gdk.Keymap.get_default()
-    var keyval = Gdk.keyval_from_name(key_name)
+def widget_put_accelerator(widget: Gtk.Widget, accelerator: string)
+    keyval: uint
+    state: Gdk.ModifierType
+    Gtk.accelerator_parse(accelerator, out keyval, out state)
+    return_if_fail(keyval != 0)
+    keymap: unowned Gdk.Keymap = Gdk.Keymap.get_default()
     keys: array of Gdk.KeymapKey
     keymap.get_entries_for_keyval(keyval, out keys)
     e: Gdk.Event* = new Gdk.Event(Gdk.EventType.KEY_PRESS)
@@ -118,8 +121,8 @@ class TermWindow: Gtk.Window
         Gtk.main_quit()
 
     def on_disconnect()
-        widget_send_key(term, "X", Gdk.ModifierType.CONTROL_MASK)
-        widget_send_key(term, "C", Gdk.ModifierType.CONTROL_MASK)
+        widget_put_accelerator(term, "<control>A")
+        widget_put_accelerator(term, "<control>X")
     
     def on_open()
         if chooser_dialog == null
