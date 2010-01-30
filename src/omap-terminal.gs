@@ -2,8 +2,11 @@
 
 class TermWindow: Gtk.Window
     term: Vte.Terminal
-    clipboard: Gtk.Clipboard
+    selection_clipboard: Gtk.Clipboard
+    primary_clipboard: Gtk.Clipboard
     chooser_dialog: Gtk.FileChooserDialog
+
+    const DELAY: int = 10
 
     const UI_DESC: string = """
     <ui>
@@ -67,13 +70,23 @@ class TermWindow: Gtk.Window
         box.pack_start(term, true, true, 0)
         term.fork_command(null, null, null, null, true, true, true)
         term.child_exited += on_term_child_exited
+        term.button_press_event += on_button_pressed
         
-        clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+        selection_clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+        primary_clipboard = Gtk.Clipboard.get(Gdk.SELECTION_PRIMARY)
         
         box.show_all()
 
     def on_term_child_exited()
         destroy()
+
+    def on_button_pressed(e: Gdk.EventButton): bool
+        case e.button
+            when Gdk.ModifierType.BUTTON2_MASK
+                primary_clipboard.request_text(on_clipboard_text)
+                return true
+            default
+                return false
 
     def on_quit()
         Gtk.main_quit()
@@ -108,13 +121,13 @@ class TermWindow: Gtk.Window
         term.copy_clipboard()
 
     def on_paste()
-        clipboard.request_text(on_clipboard_text)
+        selection_clipboard.request_text(on_clipboard_text)
 
     def on_clipboard_text(clipboard: Gtk.Clipboard, text: string)
         insert_text_with_fixed_delay(text)
 
     def insert_text_with_fixed_delay(text: string)
-        insert_text_with_delay(text, 50)
+        insert_text_with_delay(text, DELAY)
 
     def async insert_text_with_delay(text: string, delay: uint)
         callback: SourceFunc = insert_text_with_delay.callback

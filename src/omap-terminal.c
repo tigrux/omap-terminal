@@ -8,9 +8,9 @@
 #include <vte/vte.h>
 #include <stdlib.h>
 #include <string.h>
+#include <gdk/gdk.h>
 #include <glib/gstdio.h>
 #include <gio/gio.h>
-#include <gdk/gdk.h>
 
 
 #define TYPE_TERM_WINDOW (term_window_get_type ())
@@ -32,7 +32,8 @@ struct _TermWindow {
 	GtkWindow parent_instance;
 	TermWindowPrivate * priv;
 	VteTerminal* term;
-	GtkClipboard* clipboard;
+	GtkClipboard* selection_clipboard;
+	GtkClipboard* primary_clipboard;
 	GtkFileChooserDialog* chooser_dialog;
 };
 
@@ -63,6 +64,7 @@ GType term_window_get_type (void);
 enum  {
 	TERM_WINDOW_DUMMY_PROPERTY
 };
+#define TERM_WINDOW_DELAY 10
 #define TERM_WINDOW_UI_DESC "\n    <ui>\n        <menubar name='MenuBar'>\n            <menu action='FileMenu'>\n                 <menuitem action='Open'/>\n                <separator/>\n                <menuitem action='Quit'/>\n            </menu>\n            <menu action='EditMenu'>\n                 <menuitem action='Copy'/>\n                <menuitem action='Paste'/>\n            </menu>\n        </menubar>\n        <toolbar name='ToolBar'>\n            <toolitem action='Open'/>\n            <toolitem action='Copy'/>\n            <toolitem action='Paste'/>\n            <separator name='Separator'/> \n            <toolitem action='Quit'/>\n        </toolbar>\n    </ui>\n    "
 void term_window_on_open (TermWindow* self);
 static void _term_window_on_open_gtk_action_callback (GtkAction* action, gpointer self);
@@ -73,13 +75,14 @@ static void _term_window_on_paste_gtk_action_callback (GtkAction* action, gpoint
 void term_window_on_quit (TermWindow* self);
 static void _term_window_on_quit_gtk_action_callback (GtkAction* action, gpointer self);
 void term_window_on_term_child_exited (TermWindow* self);
+void term_window_on_clipboard_text (TermWindow* self, GtkClipboard* clipboard, const char* text);
+static void _term_window_on_clipboard_text_gtk_clipboard_text_received_func (GtkClipboard* clipboard, const char* text, gpointer self);
+gboolean term_window_on_button_pressed (TermWindow* self, GdkEventButton* e);
 void term_window_on_chooser_dialog_destroy (TermWindow* self);
 static void _term_window_on_chooser_dialog_destroy_gtk_object_destroy (GtkFileChooserDialog* _sender, gpointer self);
 void term_window_on_chooser_response (TermWindow* self, gint response);
 static void _term_window_on_chooser_response_gtk_dialog_response (GtkFileChooserDialog* _sender, gint response_id, gpointer self);
 void term_window_insert_text_with_fixed_delay (TermWindow* self, const char* text);
-void term_window_on_clipboard_text (TermWindow* self, GtkClipboard* clipboard, const char* text);
-static void _term_window_on_clipboard_text_gtk_clipboard_text_received_func (GtkClipboard* clipboard, const char* text, gpointer self);
 void term_window_insert_text_with_delay (TermWindow* self, const char* text, guint delay, GAsyncReadyCallback _callback_, gpointer _user_data_);
 void term_window_insert_text_with_delay_finish (TermWindow* self, GAsyncResult* _res_);
 static void term_window_insert_text_with_delay_data_free (gpointer _data);
@@ -90,6 +93,7 @@ TermWindow* term_window_new (void);
 TermWindow* term_window_construct (GType object_type);
 static void _term_window_on_quit_gtk_object_destroy (TermWindow* _sender, gpointer self);
 static void _term_window_on_term_child_exited_vte_terminal_child_exited (VteTerminal* _sender, gpointer self);
+static gboolean _term_window_on_button_pressed_gtk_widget_button_press_event (VteTerminal* _sender, GdkEventButton* event, gpointer self);
 static GObject * term_window_constructor (GType type, guint n_construct_properties, GObjectConstructParam * construct_properties);
 static void term_window_finalize (GObject* obj);
 void _main (char** args, int args_length1);
@@ -120,6 +124,36 @@ static void _term_window_on_quit_gtk_action_callback (GtkAction* action, gpointe
 void term_window_on_term_child_exited (TermWindow* self) {
 	g_return_if_fail (self != NULL);
 	gtk_object_destroy ((GtkObject*) self);
+}
+
+
+static void _term_window_on_clipboard_text_gtk_clipboard_text_received_func (GtkClipboard* clipboard, const char* text, gpointer self) {
+	term_window_on_clipboard_text (self, clipboard, text);
+}
+
+
+gboolean term_window_on_button_pressed (TermWindow* self, GdkEventButton* e) {
+	gboolean result;
+	g_return_val_if_fail (self != NULL, FALSE);
+	switch ((*e).button) {
+		case GDK_BUTTON2_MASK:
+		{
+			{
+				gtk_clipboard_request_text (self->primary_clipboard, _term_window_on_clipboard_text_gtk_clipboard_text_received_func, self);
+				result = TRUE;
+				return result;
+			}
+			break;
+		}
+		default:
+		{
+			{
+				result = FALSE;
+				return result;
+			}
+			break;
+		}
+	}
 }
 
 
@@ -209,14 +243,9 @@ void term_window_on_copy (TermWindow* self) {
 }
 
 
-static void _term_window_on_clipboard_text_gtk_clipboard_text_received_func (GtkClipboard* clipboard, const char* text, gpointer self) {
-	term_window_on_clipboard_text (self, clipboard, text);
-}
-
-
 void term_window_on_paste (TermWindow* self) {
 	g_return_if_fail (self != NULL);
-	gtk_clipboard_request_text (self->clipboard, _term_window_on_clipboard_text_gtk_clipboard_text_received_func, self);
+	gtk_clipboard_request_text (self->selection_clipboard, _term_window_on_clipboard_text_gtk_clipboard_text_received_func, self);
 }
 
 
@@ -231,7 +260,7 @@ void term_window_on_clipboard_text (TermWindow* self, GtkClipboard* clipboard, c
 void term_window_insert_text_with_fixed_delay (TermWindow* self, const char* text) {
 	g_return_if_fail (self != NULL);
 	g_return_if_fail (text != NULL);
-	term_window_insert_text_with_delay (self, text, (guint) 50, NULL, NULL);
+	term_window_insert_text_with_delay (self, text, (guint) TERM_WINDOW_DELAY, NULL, NULL);
 }
 
 
@@ -344,6 +373,11 @@ static void _term_window_on_term_child_exited_vte_terminal_child_exited (VteTerm
 }
 
 
+static gboolean _term_window_on_button_pressed_gtk_widget_button_press_event (VteTerminal* _sender, GdkEventButton* event, gpointer self) {
+	return term_window_on_button_pressed (self, event);
+}
+
+
 static GObject * term_window_constructor (GType type, guint n_construct_properties, GObjectConstructParam * construct_properties) {
 	GObject * obj;
 	GObjectClass * parent_class;
@@ -361,6 +395,7 @@ static GObject * term_window_constructor (GType type, guint n_construct_properti
 		GtkSeparatorToolItem* separator;
 		VteTerminal* _tmp1_;
 		GtkClipboard* _tmp2_;
+		GtkClipboard* _tmp3_;
 		box = g_object_ref_sink ((GtkVBox*) gtk_vbox_new (FALSE, 0));
 		gtk_container_add ((GtkContainer*) self, (GtkWidget*) box);
 		gtk_window_set_title ((GtkWindow*) self, "Omap Terminal");
@@ -388,7 +423,9 @@ static GObject * term_window_constructor (GType type, guint n_construct_properti
 		gtk_box_pack_start ((GtkBox*) box, (GtkWidget*) self->term, TRUE, TRUE, (guint) 0);
 		vte_terminal_fork_command (self->term, NULL, NULL, NULL, NULL, TRUE, TRUE, TRUE);
 		g_signal_connect_object (self->term, "child-exited", (GCallback) _term_window_on_term_child_exited_vte_terminal_child_exited, self, 0);
-		self->clipboard = (_tmp2_ = _g_object_ref0 (gtk_clipboard_get (GDK_SELECTION_CLIPBOARD)), _g_object_unref0 (self->clipboard), _tmp2_);
+		g_signal_connect_object ((GtkWidget*) self->term, "button-press-event", (GCallback) _term_window_on_button_pressed_gtk_widget_button_press_event, self, 0);
+		self->selection_clipboard = (_tmp2_ = _g_object_ref0 (gtk_clipboard_get (GDK_SELECTION_CLIPBOARD)), _g_object_unref0 (self->selection_clipboard), _tmp2_);
+		self->primary_clipboard = (_tmp3_ = _g_object_ref0 (gtk_clipboard_get (GDK_SELECTION_PRIMARY)), _g_object_unref0 (self->primary_clipboard), _tmp3_);
 		gtk_widget_show_all ((GtkWidget*) box);
 		_g_object_unref0 (box);
 		_g_object_unref0 (action_group);
@@ -414,7 +451,8 @@ static void term_window_finalize (GObject* obj) {
 	TermWindow * self;
 	self = TERM_WINDOW (obj);
 	_g_object_unref0 (self->term);
-	_g_object_unref0 (self->clipboard);
+	_g_object_unref0 (self->selection_clipboard);
+	_g_object_unref0 (self->primary_clipboard);
 	_g_object_unref0 (self->chooser_dialog);
 	G_OBJECT_CLASS (term_window_parent_class)->finalize (obj);
 }
