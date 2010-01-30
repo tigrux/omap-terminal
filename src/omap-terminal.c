@@ -6,11 +6,11 @@
 #include <glib-object.h>
 #include <gtk/gtk.h>
 #include <vte/vte.h>
+#include <gio/gio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <gdk/gdk.h>
 #include <glib/gstdio.h>
-#include <gio/gio.h>
 
 
 #define TYPE_TERM_WINDOW (term_window_get_type ())
@@ -35,6 +35,7 @@ struct _TermWindow {
 	GtkClipboard* selection_clipboard;
 	GtkClipboard* primary_clipboard;
 	GtkFileChooserDialog* chooser_dialog;
+	GCancellable* cancellable;
 };
 
 struct _TermWindowClass {
@@ -54,7 +55,9 @@ struct _TermWindowInsertTextWithDelayData {
 	void* callback_target;
 	gunichar c;
 	const char* iter;
+	gboolean _tmp1_;
 	GString* str_builder;
+	GCancellable* _tmp2_;
 };
 
 
@@ -65,13 +68,15 @@ enum  {
 	TERM_WINDOW_DUMMY_PROPERTY
 };
 #define TERM_WINDOW_DELAY 10
-#define TERM_WINDOW_UI_DESC "\n    <ui>\n        <menubar name='MenuBar'>\n            <menu action='FileMenu'>\n                 <menuitem action='Open'/>\n                <separator/>\n                <menuitem action='Quit'/>\n            </menu>\n            <menu action='EditMenu'>\n                 <menuitem action='Copy'/>\n                <menuitem action='Paste'/>\n            </menu>\n        </menubar>\n        <toolbar name='ToolBar'>\n            <toolitem action='Open'/>\n            <toolitem action='Copy'/>\n            <toolitem action='Paste'/>\n            <separator name='Separator'/> \n            <toolitem action='Quit'/>\n        </toolbar>\n    </ui>\n    "
+#define TERM_WINDOW_UI_DESC "\n    <ui>\n        <menubar name='MenuBar'>\n            <menu action='FileMenu'>\n                 <menuitem action='Open'/>\n                <separator/>\n                <menuitem action='Quit'/>\n            </menu>\n            <menu action='EditMenu'>\n                 <menuitem action='Copy'/>\n                <menuitem action='Paste'/>\n                <menuitem action='Stop'/>\n            </menu>\n        </menubar>\n        <toolbar name='ToolBar'>\n            <toolitem action='Open'/>\n            <toolitem action='Copy'/>\n            <toolitem action='Paste'/>\n            <toolitem action='Stop'/>\n            <separator name='Separator'/> \n            <toolitem action='Quit'/>\n        </toolbar>\n    </ui>\n    "
 void term_window_on_open (TermWindow* self);
 static void _term_window_on_open_gtk_action_callback (GtkAction* action, gpointer self);
 void term_window_on_copy (TermWindow* self);
 static void _term_window_on_copy_gtk_action_callback (GtkAction* action, gpointer self);
 void term_window_on_paste (TermWindow* self);
 static void _term_window_on_paste_gtk_action_callback (GtkAction* action, gpointer self);
+void term_window_on_stop (TermWindow* self);
+static void _term_window_on_stop_gtk_action_callback (GtkAction* action, gpointer self);
 void term_window_on_quit (TermWindow* self);
 static void _term_window_on_quit_gtk_action_callback (GtkAction* action, gpointer self);
 void term_window_on_term_child_exited (TermWindow* self);
@@ -98,7 +103,7 @@ static GObject * term_window_constructor (GType type, guint n_construct_properti
 static void term_window_finalize (GObject* obj);
 void _main (char** args, int args_length1);
 
-static const GtkActionEntry TERM_WINDOW_entries[] = {{"FileMenu", NULL, "_File"}, {"EditMenu", NULL, "_Edit"}, {"Open", GTK_STOCK_OPEN, "_Open", "<control>O", "Open file", (GCallback) _term_window_on_open_gtk_action_callback}, {"Copy", GTK_STOCK_COPY, "_Copy", "<control><shift>C", "Copy", (GCallback) _term_window_on_copy_gtk_action_callback}, {"Paste", GTK_STOCK_PASTE, "_Paste", "<control><shift>V", "Paste", (GCallback) _term_window_on_paste_gtk_action_callback}, {"Quit", GTK_STOCK_QUIT, "_Quit", "<control>Q", "Quit", (GCallback) _term_window_on_quit_gtk_action_callback}};
+static const GtkActionEntry TERM_WINDOW_entries[] = {{"FileMenu", NULL, "_File"}, {"EditMenu", NULL, "_Edit"}, {"Open", GTK_STOCK_OPEN, "_Open", "<control>O", "Open file", (GCallback) _term_window_on_open_gtk_action_callback}, {"Copy", GTK_STOCK_COPY, "_Copy", "<control><shift>C", "Copy", (GCallback) _term_window_on_copy_gtk_action_callback}, {"Paste", GTK_STOCK_PASTE, "_Paste", "<control><shift>V", "Paste", (GCallback) _term_window_on_paste_gtk_action_callback}, {"Stop", GTK_STOCK_STOP, "_Stop", "<control>S", "Stop", (GCallback) _term_window_on_stop_gtk_action_callback}, {"Quit", GTK_STOCK_QUIT, "_Quit", "<control>Q", "Quit", (GCallback) _term_window_on_quit_gtk_action_callback}};
 
 
 static void _term_window_on_open_gtk_action_callback (GtkAction* action, gpointer self) {
@@ -113,6 +118,11 @@ static void _term_window_on_copy_gtk_action_callback (GtkAction* action, gpointe
 
 static void _term_window_on_paste_gtk_action_callback (GtkAction* action, gpointer self) {
 	term_window_on_paste (self);
+}
+
+
+static void _term_window_on_stop_gtk_action_callback (GtkAction* action, gpointer self) {
+	term_window_on_stop (self);
 }
 
 
@@ -136,7 +146,7 @@ gboolean term_window_on_button_pressed (TermWindow* self, GdkEventButton* e) {
 	gboolean result;
 	g_return_val_if_fail (self != NULL, FALSE);
 	switch ((*e).button) {
-		case GDK_BUTTON2_MASK:
+		case 2:
 		{
 			{
 				gtk_clipboard_request_text (self->primary_clipboard, _term_window_on_clipboard_text_gtk_clipboard_text_received_func, self);
@@ -258,9 +268,22 @@ void term_window_on_clipboard_text (TermWindow* self, GtkClipboard* clipboard, c
 
 
 void term_window_insert_text_with_fixed_delay (TermWindow* self, const char* text) {
+	GCancellable* _tmp0_;
 	g_return_if_fail (self != NULL);
 	g_return_if_fail (text != NULL);
+	if (self->cancellable != NULL) {
+		return;
+	}
+	self->cancellable = (_tmp0_ = g_cancellable_new (), _g_object_unref0 (self->cancellable), _tmp0_);
 	term_window_insert_text_with_delay (self, text, (guint) TERM_WINDOW_DELAY, NULL, NULL);
+}
+
+
+void term_window_on_stop (TermWindow* self) {
+	g_return_if_fail (self != NULL);
+	if (self->cancellable != NULL) {
+		g_cancellable_cancel (self->cancellable);
+	}
 }
 
 
@@ -309,12 +332,28 @@ static gboolean term_window_insert_text_with_delay_co (TermWindowInsertTextWithD
 		g_assert_not_reached ();
 		case 0:
 		{
+			if (data->self->cancellable == NULL) {
+				{
+					if (data->_state_ == 0) {
+						g_simple_async_result_complete_in_idle (data->_async_result);
+					} else {
+						g_simple_async_result_complete (data->_async_result);
+					}
+					g_object_unref (data->_async_result);
+					return FALSE;
+				}
+			}
 			data->callback_target_destroy_notify = NULL;
 			data->callback_target = NULL;
 			data->callback = (data->_tmp0_ = _term_window_insert_text_with_delay_co_gsource_func, data->callback_target = data, data->callback_target_destroy_notify = NULL, data->_tmp0_);
 			data->iter = data->text;
 			while (TRUE) {
-				if (!((data->c = g_utf8_get_char (data->iter)) != 0)) {
+				if ((data->c = g_utf8_get_char (data->iter)) != 0) {
+					data->_tmp1_ = !g_cancellable_is_cancelled (data->self->cancellable);
+				} else {
+					data->_tmp1_ = FALSE;
+				}
+				if (!data->_tmp1_) {
 					break;
 				}
 				data->str_builder = g_string_new ("");
@@ -328,6 +367,7 @@ static gboolean term_window_insert_text_with_delay_co (TermWindowInsertTextWithD
 				data->iter = g_utf8_next_char (data->iter);
 				_g_string_free0 (data->str_builder);
 			}
+			data->self->cancellable = (data->_tmp2_ = NULL, _g_object_unref0 (data->self->cancellable), data->_tmp2_);
 			(data->callback_target_destroy_notify == NULL) ? NULL : data->callback_target_destroy_notify (data->callback_target);
 			data->callback = NULL;
 			data->callback_target = NULL;
@@ -454,6 +494,7 @@ static void term_window_finalize (GObject* obj) {
 	_g_object_unref0 (self->selection_clipboard);
 	_g_object_unref0 (self->primary_clipboard);
 	_g_object_unref0 (self->chooser_dialog);
+	_g_object_unref0 (self->cancellable);
 	G_OBJECT_CLASS (term_window_parent_class)->finalize (obj);
 }
 

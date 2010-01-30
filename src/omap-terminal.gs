@@ -5,6 +5,7 @@ class TermWindow: Gtk.Window
     selection_clipboard: Gtk.Clipboard
     primary_clipboard: Gtk.Clipboard
     chooser_dialog: Gtk.FileChooserDialog
+    cancellable: Cancellable
 
     const DELAY: int = 10
 
@@ -19,12 +20,14 @@ class TermWindow: Gtk.Window
             <menu action='EditMenu'>
                  <menuitem action='Copy'/>
                 <menuitem action='Paste'/>
+                <menuitem action='Stop'/>
             </menu>
         </menubar>
         <toolbar name='ToolBar'>
             <toolitem action='Open'/>
             <toolitem action='Copy'/>
             <toolitem action='Paste'/>
+            <toolitem action='Stop'/>
             <separator name='Separator'/> 
             <toolitem action='Quit'/>
         </toolbar>
@@ -40,6 +43,8 @@ class TermWindow: Gtk.Window
          "_Copy", "<control><shift>C", "Copy", on_copy},
         {"Paste", Gtk.STOCK_PASTE,
          "_Paste", "<control><shift>V", "Paste", on_paste},
+        {"Stop", Gtk.STOCK_STOP,
+         "_Stop", "<control>S", "Stop", on_stop},
         {"Quit", Gtk.STOCK_QUIT,
          "_Quit", "<control>Q", "Quit", on_quit}
     }
@@ -82,7 +87,7 @@ class TermWindow: Gtk.Window
 
     def on_button_pressed(e: Gdk.EventButton): bool
         case e.button
-            when Gdk.ModifierType.BUTTON2_MASK
+            when 2
                 primary_clipboard.request_text(on_clipboard_text)
                 return true
             default
@@ -127,19 +132,29 @@ class TermWindow: Gtk.Window
         insert_text_with_fixed_delay(text)
 
     def insert_text_with_fixed_delay(text: string)
+        if cancellable != null
+            return
+        cancellable = new Cancellable()
         insert_text_with_delay(text, DELAY)
 
+    def on_stop()
+        if cancellable != null
+            cancellable.cancel()
+
     def async insert_text_with_delay(text: string, delay: uint)
+        if cancellable == null
+            return
         callback: SourceFunc = insert_text_with_delay.callback
         c: unichar
         iter: unowned string = text
-        while (c=iter.get_char()) != 0
+        while (c=iter.get_char()) != 0 and not cancellable.is_cancelled()
             var str_builder = new StringBuilder()
             str_builder.append_unichar(c)
             term.feed_child(str_builder.str, -1)
             Timeout.add(delay, callback)
             yield
             iter = iter.next_char()
+        cancellable = null
 
 init
     Gtk.init(ref args)
