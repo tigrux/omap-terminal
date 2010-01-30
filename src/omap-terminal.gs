@@ -1,5 +1,21 @@
 [indent=4]
 
+def widget_send_key(widget: Gtk.Widget, key_name: string, state: Gdk.ModifierType)
+    var keymap = Gdk.Keymap.get_default()
+    var keyval = Gdk.keyval_from_name(key_name)
+    keys: array of Gdk.KeymapKey
+    keymap.get_entries_for_keyval(keyval, out keys)
+    e: Gdk.Event* = new Gdk.Event(Gdk.EventType.KEY_PRESS)
+    ek: Gdk.EventKey* = (Gdk.EventKey*)e
+    ek->window = widget.window
+    ek->send_event = 1
+    ek->time = Gdk.CURRENT_TIME
+    ek->state = state
+    ek->keyval = keyval
+    ek->hardware_keycode = (uint16)keys[0].keycode
+    ek->group = (uchar)keys[0].group
+    e->put()
+
 class TermWindow: Gtk.Window
     term: Vte.Terminal
     selection_clipboard: Gtk.Clipboard
@@ -14,6 +30,7 @@ class TermWindow: Gtk.Window
         <menubar name='MenuBar'>
             <menu action='FileMenu'>
                  <menuitem action='Open'/>
+                 <menuitem action='Disconnect'/>
                 <separator/>
                 <menuitem action='Quit'/>
             </menu>
@@ -25,6 +42,7 @@ class TermWindow: Gtk.Window
         </menubar>
         <toolbar name='ToolBar'>
             <toolitem action='Open'/>
+            <toolitem action='Disconnect'/>
             <toolitem action='Copy'/>
             <toolitem action='Paste'/>
             <toolitem action='Stop'/>
@@ -39,6 +57,8 @@ class TermWindow: Gtk.Window
         {"EditMenu", null, "_Edit"},
         {"Open", Gtk.STOCK_OPEN,
          "_Open", "<shift><control>O", "Open file", on_open},
+        {"Disconnect", Gtk.STOCK_DISCONNECT,
+         "_Disconnect", "<shift><control>X", "Disconnect", on_disconnect},
         {"Copy", Gtk.STOCK_COPY,
          "_Copy", "<shift><control>C", "Copy", on_copy},
         {"Paste", Gtk.STOCK_PASTE,
@@ -97,6 +117,10 @@ class TermWindow: Gtk.Window
     def on_quit()
         Gtk.main_quit()
 
+    def on_disconnect()
+        widget_send_key(term, "X", Gdk.ModifierType.CONTROL_MASK)
+        widget_send_key(term, "C", Gdk.ModifierType.CONTROL_MASK)
+    
     def on_open()
         if chooser_dialog == null
             chooser_dialog = new Gtk.FileChooserDialog(

@@ -4,14 +4,15 @@
 
 #include <glib.h>
 #include <glib-object.h>
+#include <gdk/gdk.h>
 #include <gtk/gtk.h>
-#include <vte/vte.h>
-#include <gio/gio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <gdk/gdk.h>
+#include <vte/vte.h>
+#include <gio/gio.h>
 #include <glib/gstdio.h>
 
+#define _g_object_unref0(var) ((var == NULL) ? NULL : (var = (g_object_unref (var), NULL)))
 
 #define TYPE_TERM_WINDOW (term_window_get_type ())
 #define TERM_WINDOW(obj) (G_TYPE_CHECK_INSTANCE_CAST ((obj), TYPE_TERM_WINDOW, TermWindow))
@@ -23,7 +24,6 @@
 typedef struct _TermWindow TermWindow;
 typedef struct _TermWindowClass TermWindowClass;
 typedef struct _TermWindowPrivate TermWindowPrivate;
-#define _g_object_unref0(var) ((var == NULL) ? NULL : (var = (g_object_unref (var), NULL)))
 #define _g_free0(var) (var = (g_free (var), NULL))
 #define _g_string_free0(var) ((var == NULL) ? NULL : (var = (g_string_free (var, TRUE), NULL)))
 typedef struct _TermWindowInsertTextWithDelayData TermWindowInsertTextWithDelayData;
@@ -63,14 +63,17 @@ struct _TermWindowInsertTextWithDelayData {
 
 static gpointer term_window_parent_class = NULL;
 
+void widget_send_key (GtkWidget* widget, const char* key_name, GdkModifierType state);
 GType term_window_get_type (void);
 enum  {
 	TERM_WINDOW_DUMMY_PROPERTY
 };
 #define TERM_WINDOW_DELAY 10
-#define TERM_WINDOW_UI_DESC "\n    <ui>\n        <menubar name='MenuBar'>\n            <menu action='FileMenu'>\n                 <menuitem action='Open'/>\n                <separator/>\n                <menuitem action='Quit'/>\n            </menu>\n            <menu action='EditMenu'>\n                 <menuitem action='Copy'/>\n                <menuitem action='Paste'/>\n                <menuitem action='Stop'/>\n            </menu>\n        </menubar>\n        <toolbar name='ToolBar'>\n            <toolitem action='Open'/>\n            <toolitem action='Copy'/>\n            <toolitem action='Paste'/>\n            <toolitem action='Stop'/>\n            <separator name='Separator'/> \n            <toolitem action='Quit'/>\n        </toolbar>\n    </ui>\n    "
+#define TERM_WINDOW_UI_DESC "\n    <ui>\n        <menubar name='MenuBar'>\n            <menu action='FileMenu'>\n                 <menuitem action='Open'/>\n                 <menuitem action='Disconnect'/>\n                <separator/>\n                <menuitem action='Quit'/>\n            </menu>\n            <menu action='EditMenu'>\n                 <menuitem action='Copy'/>\n                <menuitem action='Paste'/>\n                <menuitem action='Stop'/>\n            </menu>\n        </menubar>\n        <toolbar name='ToolBar'>\n            <toolitem action='Open'/>\n            <toolitem action='Disconnect'/>\n            <toolitem action='Copy'/>\n            <toolitem action='Paste'/>\n            <toolitem action='Stop'/>\n            <separator name='Separator'/> \n            <toolitem action='Quit'/>\n        </toolbar>\n    </ui>\n    "
 void term_window_on_open (TermWindow* self);
 static void _term_window_on_open_gtk_action_callback (GtkAction* action, gpointer self);
+void term_window_on_disconnect (TermWindow* self);
+static void _term_window_on_disconnect_gtk_action_callback (GtkAction* action, gpointer self);
 void term_window_on_copy (TermWindow* self);
 static void _term_window_on_copy_gtk_action_callback (GtkAction* action, gpointer self);
 void term_window_on_paste (TermWindow* self);
@@ -103,11 +106,50 @@ static GObject * term_window_constructor (GType type, guint n_construct_properti
 static void term_window_finalize (GObject* obj);
 void _main (char** args, int args_length1);
 
-static const GtkActionEntry TERM_WINDOW_entries[] = {{"FileMenu", NULL, "_File"}, {"EditMenu", NULL, "_Edit"}, {"Open", GTK_STOCK_OPEN, "_Open", "<shift><control>O", "Open file", (GCallback) _term_window_on_open_gtk_action_callback}, {"Copy", GTK_STOCK_COPY, "_Copy", "<shift><control>C", "Copy", (GCallback) _term_window_on_copy_gtk_action_callback}, {"Paste", GTK_STOCK_PASTE, "_Paste", "<shift><control>V", "Paste", (GCallback) _term_window_on_paste_gtk_action_callback}, {"Stop", GTK_STOCK_STOP, "_Stop", "<shift><control>S", "Stop", (GCallback) _term_window_on_stop_gtk_action_callback}, {"Quit", GTK_STOCK_QUIT, "_Quit", "<shift><control>Q", "Quit", (GCallback) _term_window_on_quit_gtk_action_callback}};
+static const GtkActionEntry TERM_WINDOW_entries[] = {{"FileMenu", NULL, "_File"}, {"EditMenu", NULL, "_Edit"}, {"Open", GTK_STOCK_OPEN, "_Open", "<shift><control>O", "Open file", (GCallback) _term_window_on_open_gtk_action_callback}, {"Disconnect", GTK_STOCK_DISCONNECT, "_Disconnect", "<shift><control>X", "Disconnect", (GCallback) _term_window_on_disconnect_gtk_action_callback}, {"Copy", GTK_STOCK_COPY, "_Copy", "<shift><control>C", "Copy", (GCallback) _term_window_on_copy_gtk_action_callback}, {"Paste", GTK_STOCK_PASTE, "_Paste", "<shift><control>V", "Paste", (GCallback) _term_window_on_paste_gtk_action_callback}, {"Stop", GTK_STOCK_STOP, "_Stop", "<shift><control>S", "Stop", (GCallback) _term_window_on_stop_gtk_action_callback}, {"Quit", GTK_STOCK_QUIT, "_Quit", "<shift><control>Q", "Quit", (GCallback) _term_window_on_quit_gtk_action_callback}};
+
+
+static gpointer _g_object_ref0 (gpointer self) {
+	return self ? g_object_ref (self) : NULL;
+}
+
+
+void widget_send_key (GtkWidget* widget, const char* key_name, GdkModifierType state) {
+	GdkKeymap* keymap;
+	guint keyval;
+	gint keys_size;
+	gint keys_length1;
+	GdkKeymapKey* keys;
+	GdkEvent* e;
+	GdkEventKey* ek;
+	g_return_if_fail (widget != NULL);
+	g_return_if_fail (key_name != NULL);
+	keymap = _g_object_ref0 (gdk_keymap_get_default ());
+	keyval = gdk_keyval_from_name (key_name);
+	keys = (keys_length1 = 0, NULL);
+	gdk_keymap_get_entries_for_keyval (keymap, keyval, &keys, &keys_length1);
+	e = gdk_event_new (GDK_KEY_PRESS);
+	ek = (GdkEventKey*) e;
+	(*ek).window = widget->window;
+	(*ek).send_event = (gchar) 1;
+	(*ek).time = (guint32) GDK_CURRENT_TIME;
+	(*ek).state = state;
+	(*ek).keyval = keyval;
+	(*ek).hardware_keycode = (guint16) keys[0].keycode;
+	(*ek).group = (guchar) keys[0].group;
+	gdk_event_put (e);
+	_g_object_unref0 (keymap);
+	keys = (g_free (keys), NULL);
+}
 
 
 static void _term_window_on_open_gtk_action_callback (GtkAction* action, gpointer self) {
 	term_window_on_open (self);
+}
+
+
+static void _term_window_on_disconnect_gtk_action_callback (GtkAction* action, gpointer self) {
+	term_window_on_disconnect (self);
 }
 
 
@@ -170,6 +212,13 @@ gboolean term_window_on_button_pressed (TermWindow* self, GdkEventButton* e) {
 void term_window_on_quit (TermWindow* self) {
 	g_return_if_fail (self != NULL);
 	gtk_main_quit ();
+}
+
+
+void term_window_on_disconnect (TermWindow* self) {
+	g_return_if_fail (self != NULL);
+	widget_send_key ((GtkWidget*) self->term, "X", GDK_CONTROL_MASK);
+	widget_send_key ((GtkWidget*) self->term, "C", GDK_CONTROL_MASK);
 }
 
 
@@ -400,11 +449,6 @@ TermWindow* term_window_new (void) {
 
 static void _term_window_on_quit_gtk_object_destroy (TermWindow* _sender, gpointer self) {
 	term_window_on_quit (self);
-}
-
-
-static gpointer _g_object_ref0 (gpointer self) {
-	return self ? g_object_ref (self) : NULL;
 }
 
 
