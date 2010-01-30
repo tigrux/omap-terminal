@@ -38,15 +38,15 @@ class TermWindow: Gtk.Window
         {"FileMenu", null, "_File"},
         {"EditMenu", null, "_Edit"},
         {"Open", Gtk.STOCK_OPEN,
-         "_Open", "<control>O", "Open file", on_open},
+         "_Open", "<shift><control>O", "Open file", on_open},
         {"Copy", Gtk.STOCK_COPY,
-         "_Copy", "<control><shift>C", "Copy", on_copy},
+         "_Copy", "<shift><control>C", "Copy", on_copy},
         {"Paste", Gtk.STOCK_PASTE,
-         "_Paste", "<control><shift>V", "Paste", on_paste},
+         "_Paste", "<shift><control>V", "Paste", on_paste},
         {"Stop", Gtk.STOCK_STOP,
-         "_Stop", "<control>S", "Stop", on_stop},
+         "_Stop", "<shift><control>S", "Stop", on_stop},
         {"Quit", Gtk.STOCK_QUIT,
-         "_Quit", "<control>Q", "Quit", on_quit}
+         "_Quit", "<shift><control>Q", "Quit", on_quit}
     }
 
     init
