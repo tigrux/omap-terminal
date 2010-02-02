@@ -1,6 +1,6 @@
 [indent=4]
 
-def widget_put_accelerator(widget: Gtk.Widget, accelerator: string)
+def gdk_window_put_accelerator(window: Gdk.Window, accelerator: string)
     keyval: uint
     state: Gdk.ModifierType
     Gtk.accelerator_parse(accelerator, out keyval, out state)
@@ -9,8 +9,8 @@ def widget_put_accelerator(widget: Gtk.Widget, accelerator: string)
     keys: array of Gdk.KeymapKey
     keymap.get_entries_for_keyval(keyval, out keys)
     e: Gdk.Event = new Gdk.Event(Gdk.EventType.KEY_PRESS)
-    widget.window.ref()
-    e.key.window = widget.window
+    window.ref()
+    e.key.window = window
     e.key.send_event = 1
     e.key.time = Gdk.CURRENT_TIME
     e.key.state = state
@@ -121,8 +121,9 @@ class TermWindow: Gtk.Window
         Gtk.main_quit()
 
     def on_disconnect()
-        widget_put_accelerator(term, "<control>A")
-        widget_put_accelerator(term, "<control>X")
+        var window = term.window
+        gdk_window_put_accelerator(window, "<control>A")
+        gdk_window_put_accelerator(window, "<control>X")
     
     def on_open()
         if chooser_dialog == null
