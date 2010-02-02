@@ -8,8 +8,9 @@ def widget_put_accelerator(widget: Gtk.Widget, accelerator: string)
     keymap: unowned Gdk.Keymap = Gdk.Keymap.get_default()
     keys: array of Gdk.KeymapKey
     keymap.get_entries_for_keyval(keyval, out keys)
-    e: Gdk.Event* = new Gdk.Event(Gdk.EventType.KEY_PRESS)
+    e: Gdk.Event = new Gdk.Event(Gdk.EventType.KEY_PRESS)
     ek: Gdk.EventKey* = (Gdk.EventKey*)e
+    widget.window.ref()
     ek->window = widget.window
     ek->send_event = 1
     ek->time = Gdk.CURRENT_TIME
@@ -17,7 +18,7 @@ def widget_put_accelerator(widget: Gtk.Widget, accelerator: string)
     ek->keyval = keyval
     ek->hardware_keycode = (uint16)keys[0].keycode
     ek->group = (uchar)keys[0].group
-    e->put()
+    e.put()
 
 class TermWindow: Gtk.Window
     term: Vte.Terminal

@@ -12,6 +12,7 @@
 #include <gio/gio.h>
 #include <glib/gstdio.h>
 
+#define _gdk_event_free0(var) ((var == NULL) ? NULL : (var = (gdk_event_free (var), NULL)))
 
 #define TYPE_TERM_WINDOW (term_window_get_type ())
 #define TERM_WINDOW(obj) (G_TYPE_CHECK_INSTANCE_CAST ((obj), TYPE_TERM_WINDOW, TermWindow))
@@ -127,6 +128,7 @@ void widget_put_accelerator (GtkWidget* widget, const char* accelerator) {
 	gdk_keymap_get_entries_for_keyval (keymap, keyval, &keys, &keys_length1);
 	e = gdk_event_new (GDK_KEY_PRESS);
 	ek = (GdkEventKey*) e;
+	g_object_ref ((GObject*) widget->window);
 	(*ek).window = widget->window;
 	(*ek).send_event = (gchar) 1;
 	(*ek).time = (guint32) GDK_CURRENT_TIME;
@@ -136,6 +138,7 @@ void widget_put_accelerator (GtkWidget* widget, const char* accelerator) {
 	(*ek).group = (guchar) keys[0].group;
 	gdk_event_put (e);
 	keys = (g_free (keys), NULL);
+	_gdk_event_free0 (e);
 }
 
 
@@ -388,7 +391,6 @@ static gboolean term_window_insert_text_with_delay_co (TermWindowInsertTextWithD
 					return FALSE;
 				}
 			}
-			data->callback_target_destroy_notify = NULL;
 			data->callback_target = NULL;
 			data->callback = (data->_tmp0_ = _term_window_insert_text_with_delay_co_gsource_func, data->callback_target = data, data->callback_target_destroy_notify = NULL, data->_tmp0_);
 			data->iter = data->text;
