@@ -9,15 +9,14 @@ def widget_put_accelerator(widget: Gtk.Widget, accelerator: string)
     keys: array of Gdk.KeymapKey
     keymap.get_entries_for_keyval(keyval, out keys)
     e: Gdk.Event = new Gdk.Event(Gdk.EventType.KEY_PRESS)
-    ek: Gdk.EventKey* = (Gdk.EventKey*)e
     widget.window.ref()
-    ek->window = widget.window
-    ek->send_event = 1
-    ek->time = Gdk.CURRENT_TIME
-    ek->state = state
-    ek->keyval = keyval
-    ek->hardware_keycode = (uint16)keys[0].keycode
-    ek->group = (uchar)keys[0].group
+    e.key.window = widget.window
+    e.key.send_event = 1
+    e.key.time = Gdk.CURRENT_TIME
+    e.key.state = state
+    e.key.keyval = keyval
+    e.key.hardware_keycode = (uint16)keys[0].keycode
+    e.key.group = (uchar)keys[0].group
     e.put()
 
 class TermWindow: Gtk.Window
