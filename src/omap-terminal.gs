@@ -5,9 +5,6 @@ def gdk_window_put_accelerator(window: Gdk.Window, accelerator: string)
     state: Gdk.ModifierType
     Gtk.accelerator_parse(accelerator, out keyval, out state)
     return_if_fail(keyval != 0)
-    keymap: unowned Gdk.Keymap = Gdk.Keymap.get_default()
-    keys: array of Gdk.KeymapKey
-    keymap.get_entries_for_keyval(keyval, out keys)
     e: Gdk.Event = new Gdk.Event(Gdk.EventType.KEY_PRESS)
     window.ref()
     e.key.window = window
@@ -15,8 +12,6 @@ def gdk_window_put_accelerator(window: Gdk.Window, accelerator: string)
     e.key.time = Gdk.CURRENT_TIME
     e.key.state = state
     e.key.keyval = keyval
-    e.key.hardware_keycode = (uint16)keys[0].keycode
-    e.key.group = (uchar)keys[0].group
     e.put()
 
 class TermWindow: Gtk.Window

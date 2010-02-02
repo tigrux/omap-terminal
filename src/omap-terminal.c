@@ -113,18 +113,11 @@ static const GtkActionEntry TERM_WINDOW_entries[] = {{"FileMenu", NULL, "_File"}
 void gdk_window_put_accelerator (GdkWindow* window, const char* accelerator) {
 	guint keyval = 0U;
 	GdkModifierType state = 0;
-	GdkKeymap* keymap;
-	gint keys_size;
-	gint keys_length1;
-	GdkKeymapKey* keys;
 	GdkEvent* e;
 	g_return_if_fail (window != NULL);
 	g_return_if_fail (accelerator != NULL);
 	gtk_accelerator_parse (accelerator, &keyval, &state);
 	g_return_if_fail (keyval != 0);
-	keymap = gdk_keymap_get_default ();
-	keys = (keys_length1 = 0, NULL);
-	gdk_keymap_get_entries_for_keyval (keymap, keyval, &keys, &keys_length1);
 	e = gdk_event_new (GDK_KEY_PRESS);
 	g_object_ref ((GObject*) window);
 	e->key.window = window;
@@ -132,10 +125,7 @@ void gdk_window_put_accelerator (GdkWindow* window, const char* accelerator) {
 	e->key.time = (guint32) GDK_CURRENT_TIME;
 	e->key.state = state;
 	e->key.keyval = keyval;
-	e->key.hardware_keycode = (guint16) keys[0].keycode;
-	e->key.group = (guchar) keys[0].group;
 	gdk_event_put (e);
-	keys = (g_free (keys), NULL);
 	_gdk_event_free0 (e);
 }
 
