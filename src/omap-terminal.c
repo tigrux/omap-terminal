@@ -70,7 +70,32 @@ enum  {
 	TERM_WINDOW_DUMMY_PROPERTY
 };
 #define TERM_WINDOW_DELAY 10
-#define TERM_WINDOW_UI_DESC "\n    <ui>\n        <menubar name='MenuBar'>\n            <menu action='FileMenu'>\n                 <menuitem action='Open'/>\n                 <menuitem action='Disconnect'/>\n                <separator/>\n                <menuitem action='Quit'/>\n            </menu>\n            <menu action='EditMenu'>\n                 <menuitem action='Copy'/>\n                <menuitem action='Paste'/>\n                <menuitem action='Stop'/>\n            </menu>\n        </menubar>\n        <toolbar name='ToolBar'>\n            <toolitem action='Open'/>\n            <toolitem action='Disconnect'/>\n            <toolitem action='Copy'/>\n            <toolitem action='Paste'/>\n            <toolitem action='Stop'/>\n            <separator name='Separator'/> \n            <toolitem action='Quit'/>\n        </toolbar>\n    </ui>\n    "
+#define TERM_WINDOW_UI_DESC "\n" \
+"    <ui>\n" \
+"        <menubar name='MenuBar'>\n" \
+"            <menu action='FileMenu'>\n" \
+"                 <menuitem action='Open'/>\n" \
+"                 <menuitem action='Disconnect'/>\n" \
+"                <separator/>\n" \
+"                <menuitem action='Quit'/>\n" \
+"            </menu>\n" \
+"            <menu action='EditMenu'>\n" \
+"                 <menuitem action='Copy'/>\n" \
+"                <menuitem action='Paste'/>\n" \
+"                <menuitem action='Stop'/>\n" \
+"            </menu>\n" \
+"        </menubar>\n" \
+"        <toolbar name='ToolBar'>\n" \
+"            <toolitem action='Open'/>\n" \
+"            <toolitem action='Disconnect'/>\n" \
+"            <toolitem action='Copy'/>\n" \
+"            <toolitem action='Paste'/>\n" \
+"            <toolitem action='Stop'/>\n" \
+"            <separator name='Separator'/> \n" \
+"            <toolitem action='Quit'/>\n" \
+"        </toolbar>\n" \
+"    </ui>\n" \
+"    "
 void term_window_on_open (TermWindow* self);
 static void _term_window_on_open_gtk_action_callback (GtkAction* action, gpointer self);
 void term_window_on_disconnect (TermWindow* self);
@@ -105,9 +130,9 @@ static void _term_window_on_term_child_exited_vte_terminal_child_exited (VteTerm
 static gboolean _term_window_on_button_pressed_gtk_widget_button_press_event (VteTerminal* _sender, GdkEventButton* event, gpointer self);
 static GObject * term_window_constructor (GType type, guint n_construct_properties, GObjectConstructParam * construct_properties);
 static void term_window_finalize (GObject* obj);
-void _main (char** args, int args_length1);
+void _vala_main (char** args, int args_length1);
 
-static const GtkActionEntry TERM_WINDOW_entries[] = {{"FileMenu", NULL, "_File"}, {"EditMenu", NULL, "_Edit"}, {"Open", GTK_STOCK_OPEN, "_Open", "<shift><control>O", "Open file", (GCallback) _term_window_on_open_gtk_action_callback}, {"Disconnect", GTK_STOCK_DISCONNECT, "_Disconnect", "<shift><control>X", "Disconnect", (GCallback) _term_window_on_disconnect_gtk_action_callback}, {"Copy", GTK_STOCK_COPY, "_Copy", "<shift><control>C", "Copy", (GCallback) _term_window_on_copy_gtk_action_callback}, {"Paste", GTK_STOCK_PASTE, "_Paste", "<shift><control>V", "Paste", (GCallback) _term_window_on_paste_gtk_action_callback}, {"Stop", GTK_STOCK_STOP, "_Stop", "<shift><control>S", "Stop", (GCallback) _term_window_on_stop_gtk_action_callback}, {"Quit", GTK_STOCK_QUIT, "_Quit", "<shift><control>Q", "Quit", (GCallback) _term_window_on_quit_gtk_action_callback}};
+const GtkActionEntry TERM_WINDOW_entries[8] = {{"FileMenu", NULL, "_File"}, {"EditMenu", NULL, "_Edit"}, {"Open", GTK_STOCK_OPEN, "_Open", "<shift><control>O", "Open file", (GCallback) _term_window_on_open_gtk_action_callback}, {"Disconnect", GTK_STOCK_DISCONNECT, "_Disconnect", "<shift><control>X", "Disconnect", (GCallback) _term_window_on_disconnect_gtk_action_callback}, {"Copy", GTK_STOCK_COPY, "_Copy", "<shift><control>C", "Copy", (GCallback) _term_window_on_copy_gtk_action_callback}, {"Paste", GTK_STOCK_PASTE, "_Paste", "<shift><control>V", "Paste", (GCallback) _term_window_on_paste_gtk_action_callback}, {"Stop", GTK_STOCK_STOP, "_Stop", "<shift><control>S", "Stop", (GCallback) _term_window_on_stop_gtk_action_callback}, {"Quit", GTK_STOCK_QUIT, "_Quit", "<shift><control>Q", "Quit", (GCallback) _term_window_on_quit_gtk_action_callback}};
 
 
 void gdk_window_put_accelerator (GdkWindow* window, const char* accelerator) {
@@ -172,7 +197,7 @@ static void _term_window_on_clipboard_text_gtk_clipboard_text_received_func (Gtk
 
 
 gboolean term_window_on_button_pressed (TermWindow* self, GdkEventButton* e) {
-	gboolean result;
+	gboolean result = FALSE;
 	g_return_val_if_fail (self != NULL, FALSE);
 	switch ((*e).button) {
 		case 2:
@@ -335,6 +360,7 @@ static void term_window_insert_text_with_delay_data_free (gpointer _data) {
 	TermWindowInsertTextWithDelayData* data;
 	data = _data;
 	_g_free0 (data->text);
+	g_object_unref (data->self);
 	g_slice_free (TermWindowInsertTextWithDelayData, data);
 }
 
@@ -344,7 +370,7 @@ void term_window_insert_text_with_delay (TermWindow* self, const char* text, gui
 	_data_ = g_slice_new0 (TermWindowInsertTextWithDelayData);
 	_data_->_async_result = g_simple_async_result_new (G_OBJECT (self), _callback_, _user_data_, term_window_insert_text_with_delay);
 	g_simple_async_result_set_op_res_gpointer (_data_->_async_result, _data_, term_window_insert_text_with_delay_data_free);
-	_data_->self = self;
+	_data_->self = g_object_ref (self);
 	_data_->text = g_strdup (text);
 	_data_->delay = delay;
 	term_window_insert_text_with_delay_co (_data_);
@@ -372,59 +398,64 @@ static gboolean _term_window_insert_text_with_delay_co_gsource_func (gpointer se
 
 static gboolean term_window_insert_text_with_delay_co (TermWindowInsertTextWithDelayData* data) {
 	switch (data->_state_) {
+		case 0:
+		goto _state_0;
+		case 1:
+		goto _state_1;
 		default:
 		g_assert_not_reached ();
-		case 0:
-		{
-			if (data->self->cancellable == NULL) {
-				{
-					if (data->_state_ == 0) {
-						g_simple_async_result_complete_in_idle (data->_async_result);
-					} else {
-						g_simple_async_result_complete (data->_async_result);
-					}
-					g_object_unref (data->_async_result);
-					return FALSE;
-				}
-			}
-			data->callback_target = NULL;
-			data->callback = (data->_tmp0_ = _term_window_insert_text_with_delay_co_gsource_func, data->callback_target = data, data->callback_target_destroy_notify = NULL, data->_tmp0_);
-			data->iter = data->text;
-			while (TRUE) {
-				if ((data->c = g_utf8_get_char (data->iter)) != 0) {
-					data->_tmp1_ = !g_cancellable_is_cancelled (data->self->cancellable);
+	}
+	_state_0:
+	{
+		if (data->self->cancellable == NULL) {
+			{
+				if (data->_state_ == 0) {
+					g_simple_async_result_complete_in_idle (data->_async_result);
 				} else {
-					data->_tmp1_ = FALSE;
+					g_simple_async_result_complete (data->_async_result);
 				}
-				if (!data->_tmp1_) {
-					break;
-				}
-				data->str_builder = g_string_new ("");
-				g_string_append_unichar (data->str_builder, data->c);
-				vte_terminal_feed_child (data->self->term, data->str_builder->str, (glong) (-1));
-				g_timeout_add_full (G_PRIORITY_DEFAULT, data->delay, data->callback, data->callback_target, data->callback_target_destroy_notify);
-				data->_state_ = 1;
+				g_object_unref (data->_async_result);
 				return FALSE;
-				case 1:
-				;
-				data->iter = g_utf8_next_char (data->iter);
-				_g_string_free0 (data->str_builder);
 			}
-			data->self->cancellable = (data->_tmp2_ = NULL, _g_object_unref0 (data->self->cancellable), data->_tmp2_);
-			(data->callback_target_destroy_notify == NULL) ? NULL : data->callback_target_destroy_notify (data->callback_target);
-			data->callback = NULL;
-			data->callback_target = NULL;
-			data->callback_target_destroy_notify = NULL;
 		}
-		{
-			if (data->_state_ == 0) {
-				g_simple_async_result_complete_in_idle (data->_async_result);
+		data->callback_target_destroy_notify = NULL;
+		data->callback_target = NULL;
+		data->callback = (data->_tmp0_ = _term_window_insert_text_with_delay_co_gsource_func, data->callback_target = data, data->callback_target_destroy_notify = NULL, data->_tmp0_);
+		data->iter = data->text;
+		while (TRUE) {
+			if ((data->c = g_utf8_get_char (data->iter)) != 0) {
+				data->_tmp1_ = !g_cancellable_is_cancelled (data->self->cancellable);
 			} else {
-				g_simple_async_result_complete (data->_async_result);
+				data->_tmp1_ = FALSE;
 			}
-			g_object_unref (data->_async_result);
+			if (!data->_tmp1_) {
+				break;
+			}
+			data->str_builder = g_string_new ("");
+			g_string_append_unichar (data->str_builder, data->c);
+			vte_terminal_feed_child (data->self->term, data->str_builder->str, (glong) (-1));
+			g_timeout_add_full (G_PRIORITY_DEFAULT, data->delay, data->callback, data->callback_target, data->callback_target_destroy_notify);
+			data->_state_ = 1;
 			return FALSE;
+			_state_1:
+			;
+			data->iter = g_utf8_next_char (data->iter);
+			_g_string_free0 (data->str_builder);
 		}
+		data->self->cancellable = (data->_tmp2_ = NULL, _g_object_unref0 (data->self->cancellable), data->_tmp2_);
+		(data->callback_target_destroy_notify == NULL) ? NULL : data->callback_target_destroy_notify (data->callback_target);
+		data->callback = NULL;
+		data->callback_target = NULL;
+		data->callback_target_destroy_notify = NULL;
+	}
+	{
+		if (data->_state_ == 0) {
+			g_simple_async_result_complete_in_idle (data->_async_result);
+		} else {
+			g_simple_async_result_complete (data->_async_result);
+		}
+		g_object_unref (data->_async_result);
+		return FALSE;
 	}
 }
 
@@ -539,16 +570,18 @@ static void term_window_finalize (GObject* obj) {
 
 
 GType term_window_get_type (void) {
-	static GType term_window_type_id = 0;
-	if (term_window_type_id == 0) {
+	static volatile gsize term_window_type_id__volatile = 0;
+	if (g_once_init_enter (&term_window_type_id__volatile)) {
 		static const GTypeInfo g_define_type_info = { sizeof (TermWindowClass), (GBaseInitFunc) NULL, (GBaseFinalizeFunc) NULL, (GClassInitFunc) term_window_class_init, (GClassFinalizeFunc) NULL, NULL, sizeof (TermWindow), 0, (GInstanceInitFunc) term_window_instance_init, NULL };
+		GType term_window_type_id;
 		term_window_type_id = g_type_register_static (GTK_TYPE_WINDOW, "TermWindow", &g_define_type_info, 0);
+		g_once_init_leave (&term_window_type_id__volatile, term_window_type_id);
 	}
-	return term_window_type_id;
+	return term_window_type_id__volatile;
 }
 
 
-void _main (char** args, int args_length1) {
+void _vala_main (char** args, int args_length1) {
 	TermWindow* window;
 	gtk_init (&args_length1, &args);
 	window = g_object_ref_sink (term_window_new ());
@@ -560,7 +593,7 @@ void _main (char** args, int args_length1) {
 
 int main (int argc, char ** argv) {
 	g_type_init ();
-	_main (argv, argc);
+	_vala_main (argv, argc);
 	return 0;
 }
 
