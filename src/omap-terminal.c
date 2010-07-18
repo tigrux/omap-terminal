@@ -65,7 +65,7 @@ struct _TermWindowInsertTextWithDelayData {
 static gpointer term_window_parent_class = NULL;
 
 void gdk_window_put_accelerator (GdkWindow* window, const char* accelerator);
-GType term_window_get_type (void);
+GType term_window_get_type (void) G_GNUC_CONST;
 enum  {
 	TERM_WINDOW_DUMMY_PROPERTY
 };
@@ -283,8 +283,8 @@ void term_window_on_chooser_response (TermWindow* self, gint response) {
 				contents = NULL;
 				_tmp3_ = (_tmp1_ = g_file_get_contents (filename, &_tmp0_, NULL, &_inner_error_), contents = (_tmp2_ = _tmp0_, _g_free0 (contents), _tmp2_), _tmp1_);
 				if (_inner_error_ != NULL) {
-					_g_free0 (filename);
 					_g_free0 (contents);
+					_g_free0 (filename);
 					g_critical ("file %s: line %d: uncaught error: %s (%s, %d)", __FILE__, __LINE__, _inner_error_->message, g_quark_to_string (_inner_error_->domain), _inner_error_->code);
 					g_clear_error (&_inner_error_);
 					return;
@@ -293,8 +293,8 @@ void term_window_on_chooser_response (TermWindow* self, gint response) {
 					term_window_insert_text_with_fixed_delay (self, contents);
 				}
 				gtk_object_destroy ((GtkObject*) self->chooser_dialog);
-				_g_free0 (filename);
 				_g_free0 (contents);
+				_g_free0 (filename);
 			}
 			break;
 		}
@@ -392,7 +392,9 @@ static void term_window_insert_text_with_delay_ready (GObject* source_object, GA
 
 
 static gboolean _term_window_insert_text_with_delay_co_gsource_func (gpointer self) {
-	return term_window_insert_text_with_delay_co (self);
+	gboolean result;
+	result = term_window_insert_text_with_delay_co (self);
+	return result;
 }
 
 
@@ -443,7 +445,7 @@ static gboolean term_window_insert_text_with_delay_co (TermWindowInsertTextWithD
 			_g_string_free0 (data->str_builder);
 		}
 		data->self->cancellable = (data->_tmp2_ = NULL, _g_object_unref0 (data->self->cancellable), data->_tmp2_);
-		(data->callback_target_destroy_notify == NULL) ? NULL : data->callback_target_destroy_notify (data->callback_target);
+		(data->callback_target_destroy_notify == NULL) ? NULL : (data->callback_target_destroy_notify (data->callback_target), NULL);
 		data->callback = NULL;
 		data->callback_target = NULL;
 		data->callback_target_destroy_notify = NULL;
@@ -483,7 +485,9 @@ static void _term_window_on_term_child_exited_vte_terminal_child_exited (VteTerm
 
 
 static gboolean _term_window_on_button_pressed_gtk_widget_button_press_event (VteTerminal* _sender, GdkEventButton* event, gpointer self) {
-	return term_window_on_button_pressed (self, event);
+	gboolean result;
+	result = term_window_on_button_pressed (self, event);
+	return result;
 }
 
 
@@ -517,9 +521,9 @@ static GObject * term_window_constructor (GType type, guint n_construct_properti
 		gtk_window_add_accel_group ((GtkWindow*) self, gtk_ui_manager_get_accel_group (manager));
 		gtk_ui_manager_add_ui_from_string (manager, TERM_WINDOW_UI_DESC, (gssize) (-1), &_inner_error_);
 		if (_inner_error_ != NULL) {
-			_g_object_unref0 (box);
-			_g_object_unref0 (action_group);
 			_g_object_unref0 (manager);
+			_g_object_unref0 (action_group);
+			_g_object_unref0 (box);
 			g_critical ("file %s: line %d: uncaught error: %s (%s, %d)", __FILE__, __LINE__, _inner_error_->message, g_quark_to_string (_inner_error_->domain), _inner_error_->code);
 			g_clear_error (&_inner_error_);
 		}
@@ -537,10 +541,10 @@ static GObject * term_window_constructor (GType type, guint n_construct_properti
 		self->primary_clipboard = (_tmp3_ = _g_object_ref0 (gtk_clipboard_get (GDK_SELECTION_PRIMARY)), _g_object_unref0 (self->primary_clipboard), _tmp3_);
 		gtk_widget_show_all ((GtkWidget*) box);
 		gtk_widget_grab_focus ((GtkWidget*) self->term);
-		_g_object_unref0 (box);
-		_g_object_unref0 (action_group);
-		_g_object_unref0 (manager);
 		_g_object_unref0 (separator);
+		_g_object_unref0 (manager);
+		_g_object_unref0 (action_group);
+		_g_object_unref0 (box);
 	}
 	return obj;
 }
